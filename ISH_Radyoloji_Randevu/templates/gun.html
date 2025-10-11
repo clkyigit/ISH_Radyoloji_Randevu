@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Gün Detayı: {{ tarih }}{% endblock %}
+{% block content %}
+<div class="detail-container">
+    <h2>{{ tarih }} Günü İşlemleri</h2>
+    {% if islemler %}
+        <ul class="daily-list">
+            {% for islem in islemler %}
+            <li>
+                <strong>{{ islem.hasta_adi }}</strong> - {{ islem.islem_adi }}
+                <span class="tag" style="background-color: {{ islem.to_dict().color }}">{{ islem.anestezi_tipi }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="total-time">
+            <strong>Toplam Tahmini İşlem Süresi:</strong> {{ toplam_sure }} dakika
+        </div>
+    {% else %}
+        <p>Bu gün için planlanmış bir işlem bulunmamaktadır.</p>
+    {% endif %}
+    <a href="{{ url_for('ana_sayfa') }}" class="button-cancel" style="width: auto; margin-top: 20px;">Takvime Geri Dön</a>
+</div>
+{% endblock %}

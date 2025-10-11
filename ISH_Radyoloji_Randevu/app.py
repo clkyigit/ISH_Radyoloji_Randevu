@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 import os
 import json
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, abort
@@ -28,8 +30,9 @@ SKOPI_GEREKTIRMEYEN_ISLEMLER = sorted([islem for islem, detay in PROCEDURE_METAD
 db = SQLAlchemy()
 app = Flask(__name__)
 # ... (app.config kodları aynı)
-app.config['SECRET_KEY'] = 'cok-gizli-bir-anahtar-buraya-yazin-ve-kimseyle-paylasmayin' 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.abspath(os.path.dirname(__file__)), 'randevu.db')}"
+# Eski satırı silin ve bunu ekleyin
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bu-bir-varsayilan-anahtardir-degistir')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace("postgres://", "postgresql://")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # VERİTABANI MODELLERİ

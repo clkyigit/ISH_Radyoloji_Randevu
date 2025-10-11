@@ -104,3 +104,38 @@ input[type="text"], input[type="date"], input[type="time"], select, textarea { w
 .add-user-form .button-submit { width: 100%; margin-top: 10px; }
 .admin-button { background-color: #f0ad4e; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; }
 .admin-button:hover { background-color: #ec971f; }
+/* Gün Detay Sayfası Stilleri */
+.islem-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.islem-info {
+    flex-grow: 1;
+}
+.islem-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0; /* Butonların küçülmesini engelle */
+}
+.note-display {
+    font-size: 0.9em;
+    color: #555;
+    background-color: #f8f9fa;
+    border-left: 3px solid #0d6efd;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 3px;
+}
+.button-edit {
+    background-color: #ffc107;
+    color: #212529;
+    padding: 5px 10px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.button-edit:hover {
+    background-color: #e0a800;
+}

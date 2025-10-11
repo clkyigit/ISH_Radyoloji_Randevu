@@ -4,13 +4,14 @@
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
     <div class="app-container">
         <div class="sidebar">
-            
+            {% if current_user.role in ['admin', 'doktor'] %}
             <div class="sidebar-section">
                 <a href="{{ url_for('yeni_islem_sayfasi') }}" class="button-add-new">
                     <span class="plus-icon">+</span> Yeni Randevu Ekle
                 </a>
             </div>
-
+            {% endif %}
+            
             <div class="sidebar-section">
                 <h3>Randevu Ara</h3>
                 <form action="{{ url_for('arama') }}" method="GET" class="search-form">
@@ -24,7 +25,6 @@
                     <button type="submit" class="button-search">Ara</button>
                 </form>
             </div>
-
             <div class="sidebar-section">
                 <h3>Bugünün Randevuları</h3>
                 {% if bugunun_islemleri %}
@@ -37,17 +37,13 @@
                     <p class="no-appointments"><small>Bugün için randevu yok.</small></p>
                 {% endif %}
             </div>
-             
-             <div class="sidebar-section">
-                <h3>Mini Takvim (Yakında)</h3>
-            </div>
         </div>
-
         <div class="main-content">
             <div id='calendar'></div>
         </div>
     </div>
     <script>
+        //... (JavaScript aynı kalıyor)
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -56,9 +52,7 @@
                 locale: 'tr',
                 buttonText: {today: 'Bugün', month: 'Ay', week: 'Hafta', list: 'Liste'},
                 events: '/api/islemler',
-                dateClick: function(info) {
-                    window.location.href = `/gun/${info.dateStr}`;
-                }
+                dateClick: function(info) { window.location.href = `/gun/${info.dateStr}`; }
             });
             calendar.render();
         });

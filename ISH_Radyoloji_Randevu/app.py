@@ -249,27 +249,6 @@ def islem_detay(islem_adi):
     if detaylar: return jsonify(detaylar)
     return jsonify({"hata": "İşlem bulunamadı"}), 404
 
-# --- 7. GEÇİCİ VERİTABANI SIFIRLAMA ROTASI (GÜVENLİK İÇİN SONRA KALDIRILACAK) ---
-# Korumaları hala kapalı. Veritabanını sıfırladıktan sonra bu fonksiyonu SİLİN veya korumalarını AÇIN.
-#@login_required
-#@role_required(['admin'])
-@app.route('/GEÇİCİ_VERİTABANI_SIFIRLAMA_ADRESİ_12345')
-def reset_database():
-    try:
-        print("--- VERİTABANI SIFIRLAMA BAŞLATILDI ---")
-        db.drop_all()
-        print("--- ESKİ TABLOLAR SİLİNDİ (DROP ALL) ---")
-        db.create_all()
-        print("--- YENİ TABLOLAR OLUŞTURULDU (CREATE ALL) ---")
-        admin_user = User(username='admin', role='admin')
-        admin_user.set_password('admin123')
-        db.session.add(admin_user)
-        db.session.commit()
-        print("--- VARSAYILAN ADMİN OLUŞTURULDU ---")
-        return "Veritabanı başarıyla sıfırlandı. LÜTFEN ŞİMDİ BU KODU app.py'den SİLİN VE GÜVENLİK KORUMALARINI GERİ GETİRİN. Ardından login sayfasına gidin."
-    except Exception as e:
-        print(f"!!! SIFIRLAMA SIRASINDA KRİTİK HATA: {e} !!!")
-        return f"Veritabanı sıfırlanırken bir hata oluştu: <br>{e}", 500
 
 # --- 8. UYGULAMAYI BAŞLATMA ---
 if __name__ == '__main__':

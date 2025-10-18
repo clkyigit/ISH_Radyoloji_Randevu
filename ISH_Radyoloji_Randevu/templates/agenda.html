@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex gap-2">
+    <form method="get" action="{{ url_for('agenda') }}" class="d-flex gap-2">
+      <input type="date" class="form-control" name="date" value="{{ day_iso }}">
+      <button class="btn btn-outline-secondary">Günü Aç</button>
+    </form>
+    <div class="ms-3 fw-semibold">Tarih: {{ day_iso|tr_date }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <form method="get" action="{{ url_for('search') }}" class="d-flex gap-2">
+      <input name="tc" class="form-control" placeholder="TC ile ara">
+      <button class="btn btn-outline-primary">Ara</button>
+    </form>
+    <a class="btn btn-success" href="{{ url_for('new', date=day_iso) }}">+ Yeni Randevu</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">Çıkış</a>
+  </div>
+</div>
+
+{% if appts|length == 0 %}
+  <div class="alert alert-info">Bu günde randevu yok.</div>
+{% else %}
+  <div class="list-group">
+    {% for a in appts %}
+      <div class="list-group-item appt {% if a.anesthesia %}anesthesia{% endif %}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <a href="#" class="stretched-link text-decoration-none appt-detail" data-id="{{ a.id }}">
+              <strong>{{ a.custom_proc_name or a.proc_name }}</strong>
+            </a>
+            <div class="small text-muted">Süre: {{ a.duration_min }} dk</div>
+          </div>
+
+          <form method="post"
+                action="{{ url_for('delete_appt', appt_id=a.id) }}"
+                onsubmit="return confirm('Bu randevuyu silmek istediğinize emin misiniz?');">
+            <input type="hidden" name="day_iso" value="{{ day_iso }}">
+            <button class="btn btn-sm btn-outline-danger" title="Sil">Sil</button>
+          </form>
+        </div>
+
+        <div>Hasta: {{ a.patient_name }}{% if a.patient_tc %} <span class="text-muted">— TC: {{ a.patient_tc }}</span>{% endif %}</div>
+        <div class="small text-muted">
+          İlaç:
+          {% if a.anticoagulant %} Antikoagülan{% endif %}
+          {% if a.antiplatelet %} {% if a.anticoagulant %}+{% endif %} Antiagregan{% endif %}
+          {% if not a.anticoagulant and not a.antiplatelet %} — {% endif %}
+          {% if a.med_note %} • Not: {{ a.med_note }}{% endif %}
+          {% if a.anesthesia %} • <strong>Anestezi</strong>{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- Detay Modal -->
+<div class="modal fade" id="apptModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Randevu Detayı</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+      </div>
+      <div class="modal-body">
+        <div id="apptDetail"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Bootstrap modal için helper
+  const apptModal = new bootstrap.Modal(document.getElementById('apptModal'));
+  const apptDetailBox = document.getElementById('apptDetail');
+
+  document.querySelectorAll('.appt-detail').forEach(a => {
+    a.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = a.getAttribute('data-id');
+      try {
+        const res = await fetch(`{{ url_for('root') }}api/appt/${id}`);
+        if (!res.ok) throw new Error('Detay alınamadı');
+        const d = await res.json();
+        const drugs = [
+          d.anticoagulant ? 'Antikoagülan' : null,
+          d.antiplatelet ? 'Antiagregan' : null
+        ].filter(Boolean).join(' + ') || '—';
+
+        const reqHtml = (d.req_checks || []).map(x => `<li>${escapeHtml(x)}</li>`).join('');
+
+        apptDetailBox.innerHTML = `
+          <div class="row g-2">
+            <div class="col-md-6">
+              <div><strong>Hasta:</strong> ${escapeHtml(d.patient_name)} ${d.patient_tc ? ' — <span class="text-muted">TC: '+escapeHtml(d.patient_tc)+'</span>' : ''}</div>
+              <div><strong>Tarih:</strong> ${escapeHtml(d.date)} (${escapeHtml(d.date_tr || '')})</div>
+              <div><strong>İşlem:</strong> ${escapeHtml(d.custom_proc_name || d.proc_name)}</div>
+              <div><strong>Süre:</strong> ${d.duration_min} dk</div>
+            </div>
+            <div class="col-md-6">
+              <div><strong>İlaç:</strong> ${drugs}</div>
+              ${d.anesthesia ? '<div><strong>Anestezi:</strong> Evet</div>' : '<div><strong>Anestezi:</strong> Hayır</div>'}
+              ${d.med_note ? '<div><strong>İşlem Notu:</strong> '+escapeHtml(d.med_note)+'</div>' : ''}
+            </div>
+            <div class="col-12"><hr></div>
+            <div class="col-md-6">
+              <div class="fw-semibold mb-1">Laboratuvar Notu</div>
+              <div class="border rounded p-2 bg-light">${escapeHtml(d.lab_notes || '—')}</div>
+            </div>
+            <div class="col-md-6">
+              <div class="fw-semibold mb-1">Hazırlık Hatırlatma Notu</div>
+              <div class="border rounded p-2 bg-light">${escapeHtml(d.prep_notes || '—')}</div>
+            </div>
+            <div class="col-12 mt-2">
+              <div class="fw-semibold mb-1">Öneri Checklist</div>
+              ${reqHtml ? '<ul class="mb-0">'+reqHtml+'</ul>' : '—'}
+            </div>
+          </div>
+        `;
+        apptModal.show();
+      } catch (err) {
+        alert(err.message || 'Hata');
+      }
+    });
+  });
+
+  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
+</script>
+{% endblock %}

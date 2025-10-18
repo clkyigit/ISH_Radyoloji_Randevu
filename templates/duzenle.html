@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Randevu Düzenle{% endblock %}
+{% block content %}
+<div class="form-container single-page-form">
+    <h2>Randevu Bilgilerini Düzenle</h2>
+    <form method="post">
+        <div class="form-grid">
+            <div class="form-column">
+                <fieldset>
+                    <legend>Hasta ve Zamanlama</legend>
+                    <div class="form-group">
+                        <label for="hasta_adi">Hasta Adı Soyadı:</label>
+                        <input type="text" name="hasta_adi" value="{{ islem.hasta_adi }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="islem_tarihi">İşlem Günü:</label>
+                        <input type="date" name="islem_tarihi" value="{{ islem.islem_tarihi }}" required>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <legend>İşlem Detayları</legend>
+                    </fieldset>
+                <fieldset>
+                    <legend>Ek Notlar</legend>
+                    <div class="form-group">
+                        <label for="notlar">İşleme Özel Ek Notlar:</label>
+                        <textarea name="notlar">{{ islem.notlar or '' }}</textarea>
+                    </div>
+                </fieldset>
+            </div>
+            <div class="form-column">
+                <div id="hazirlik-listesi-container">
+                    <h3>İşlem Hazırlık Kontrol Listesi</h3>
+                    <div id="hazirlik-listesi-icerik"></div>
+                </div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <a href="{{ url_for('gun_detay', tarih=islem.islem_tarihi) }}" class="button-cancel">İptal</a>
+            <button type="submit" class="button-submit">Değişiklikleri Kaydet</button>
+        </div>
+    </form>
+</div>
+<script>
+    // Düzenleme sayfası için özel JavaScript kodları
+</script>
+{% endblock %}

@@ -11,8 +11,20 @@ def _app_base_dir() -> Path:
     return Path(__file__).resolve().parent
 
 BASE_DIR = _app_base_dir()
-INSTANCE_DIR = BASE_DIR / "instance"
-INSTANCE_DIR.mkdir(parents=True, exist_ok=True)  # yazılabilir klasörü garanti et
+
+# ---- DB dizinini belirle ----
+# Öncelik: Ortam değişkeni DB_DIR (Render için önerilen)
+db_dir_env = os.environ.get("DB_DIR")
+if db_dir_env:
+    INSTANCE_DIR = Path(db_dir_env)
+# Render çalışma ortamında güvenli varsayılan (yazılabilir)
+elif os.environ.get("RENDER", "") or os.environ.get("RENDER_SERVICE_ID", ""):
+    INSTANCE_DIR = Path("/var/tmp/ir_randevu_instance")
+# Geliştirme/Windows için yerel "instance/" klasörü
+else:
+    INSTANCE_DIR = BASE_DIR / "instance"
+
+INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = INSTANCE_DIR / "app.db"
 
 SCHEMA = """
@@ -36,7 +48,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   patient_name TEXT NOT NULL,
   procedure_type_id INTEGER NOT NULL,
   duration_min INTEGER NOT NULL,
-  date TEXT NOT NULL,                         -- YYYY-MM-DD (saat yok)
+  date TEXT NOT NULL,                         -- YYYY-MM-DD
   anticoagulant INTEGER NOT NULL DEFAULT 0,
   antiplatelet INTEGER NOT NULL DEFAULT 0,
   anesthesia INTEGER NOT NULL DEFAULT 0,

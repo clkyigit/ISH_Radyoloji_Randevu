@@ -1,31 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h5 class="mb-0">TC ile Arama</h5>
-  <a class="btn btn-outline-secondary" href="{{ url_for('agenda') }}">Gün Listesine Dön</a>
-</div>
-
-<form method="get" action="{{ url_for('search') }}" class="card card-body mb-3 d-flex gap-2 flex-row">
-  <input name="tc" class="form-control" placeholder="TC girin" value="{{ tc or '' }}">
-  <button class="btn btn-primary">Ara</button>
+<h5>Arama</h5>
+<form method="get" action="{{ url_for('search') }}" class="d-flex gap-2 mb-3">
+  <input class="form-control" name="q" placeholder="Hasta adı" value="{{ q or '' }}">
+  <button class="btn btn-outline-secondary">Ara</button>
 </form>
 
-{% if tc and results|length == 0 %}
-  <div class="alert alert-warning">Kayıt bulunamadı.</div>
+{% if q and results|length == 0 %}
+  <div class="alert alert-warning">Sonuç bulunamadı.</div>
 {% endif %}
 
-{% if results|length > 0 %}
+{% if results and results|length > 0 %}
   <div class="list-group">
-    {% for r in results %}
-      <div class="list-group-item {% if r.anesthesia %}anesthesia{% endif %}">
+    {% for a in results %}
+      <div class="list-group-item {% if a.anesthesia %}anesthesia{% endif %}">
         <div class="d-flex justify-content-between">
           <div>
-            <div><strong>{{ r.patient_name }}</strong> {% if r.patient_tc %}<span class="text-muted">— TC: {{ r.patient_tc }}</span>{% endif %}</div>
+            <strong>{{ a.patient_name }}</strong> — {{ a.date|tr_date }}
             <div class="small text-muted">
-              Tarih: {{ r.date|tr_date }} • İşlem: {{ r.custom_proc_name or r.proc_name }}
+              {{ a.custom_proc_name or a.proc_name }} • {{ a.duration_min }} dk
+              {% if a.anesthesia %} • <strong>Anestezi</strong>{% endif %}
+              {% if a.med_note %} • Not: {{ a.med_note }}{% endif %}
             </div>
           </div>
-          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('agenda', date=r.date) }}">Güne Git</a>
+          <form method="post" action="{{ url_for('delete_appt', appt_id=a.id) }}"
+                onsubmit="return confirm('Bu randevuyu silmek istediğinize emin misiniz?');">
+            <input type="hidden" name="day_iso" value="{{ a.date }}">
+            <button class="btn btn-sm btn-outline-danger">Sil</button>
+          </form>
         </div>
       </div>
     {% endfor %}

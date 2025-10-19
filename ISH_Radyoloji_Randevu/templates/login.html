@@ -1,32 +1,13 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Giriş Yap - İŞH Girişimsel Radyoloji</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="login-page">
-    <div class="login-container">
-        <h2>İŞH Girişimsel Radyoloji Randevu Sistemi</h2>
-        <p>Lütfen devam etmek için giriş yapın.</p>
-        
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="flash-error">{{ messages[0] }}</div>
-            {% endif %}
-        {% endwith %}
-
-        <form method="post">
-            <div class="form-group">
-                <label for="username">Kullanıcı Adı:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Şifre:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit" class="button-submit">Giriş Yap</button>
-        </form>
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <form method="post" class="card card-body">
+      <h5 class="mb-3">Giriş</h5>
+      <input name="username" class="form-control mb-2" placeholder="Kullanıcı">
+      <input name="password" type="password" class="form-control mb-3" placeholder="Şifre">
+      <button class="btn btn-primary w-100">Giriş</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

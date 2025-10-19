@@ -1,26 +1,19 @@
 # ISH_Radyoloji_Randevu/db.py
-import os, sqlite3, json, shutil
+import os, sqlite3, json, shutil, time
 from pathlib import Path
+from werkzeug.security import generate_password_hash
 
-# 1) Kalıcı dizin: ENV > /var/data/ir_randevu_instance > ./instance
 DB_DIR = os.environ.get("DB_DIR") or "/var/data/ir_randevu_instance"
 INSTANCE_DIR = Path(DB_DIR)
-LEGACY_INSTANCE_DIR = Path(__file__).resolve().parent / "instance"  # eski konum
-
+LEGACY_INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
 INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
-
 DB_PATH = INSTANCE_DIR / "app.db"
 
-# 2) İlk açılışta eski dosyayı kalıcı diske taşı (varsa)
 def _maybe_migrate_legacy_db():
     legacy_db = LEGACY_INSTANCE_DIR / "app.db"
     if legacy_db.exists() and not DB_PATH.exists():
-        INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
-        try:
-            shutil.copy2(legacy_db, DB_PATH)
-        except Exception:
-            # taşıma başarısızsa, yeni db zaten oluşturulacak
-            pass
+        try: shutil.copy2(legacy_db, DB_PATH)
+        except Exception: pass
 
 _maybe_migrate_legacy_db()
 
@@ -29,7 +22,9 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT,
-  pin TEXT
+  pin TEXT,
+  role TEXT NOT NULL DEFAULT 'doctor',
+  active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS procedure_types (
@@ -58,44 +53,65 @@ CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);
 """
 
 SEED_PROCS = [
-  ("Karotis stent", 90,  {"checklist": ["DAPT (ASA + Klopidogrel)", "GFR/kontrast notu", "Son 7 günde antitrombosit/antiko gözden geçirme"]}),
-  ("SVK", 45, {"checklist": ["Antiko/antiagregan kontrol", "US eşliğinde giriş planı", "Alerji/antibiyotik profilaksisi"]}),
-  ("Anevrizma Onarım", 180, {"checklist": ["Nöro anestezi onayı", "Antiko/antiagregan yönetimi", "Kontrast/renal fonksiyon"]}),
-  ("PTA Alt Ekstremite", 120, {"checklist": ["Antiko/antiagregan kontrol", "Distal nabız/segment planı", "Giriş yolu ve hemostaz planı"]}),
-  ("Serebral Anjiografi", 90, {"checklist": ["INR/Plt", "GFR/kontrast", "Alerji sorgusu", "Giriş planı (radial/femoral)"]}),
-  ("TARE", 150, {"checklist": ["Radyasyon planlama", "Karaciğer fonksiyonları", "Arteriyel haritalama", "Non-target emboli önlemleri"]}),
-  ("TARE MAA", 150, {"checklist": ["MAA haritalama", "Radyasyon güvenliği", "Karaciğer fonksiyonları"]}),
-  ("Lenfanjiogram", 75, {"checklist": ["Kontrast alerji sorgusu", "Antibiyotik profilaksisi (kurum tercihi)", "Giriş noktası planı"]}),
-  ("BT Akciğer Biyopsisi", 60, {"checklist": ["Koag (INR ≤1.5, Plt ≥50k öneri)", "Antitrombotik ilaçlar", "Pnömotoraks bilgilendirme"]}),
-  ("US Karaciğer Biyopsisi", 45, {"checklist": ["INR ≤1.5, Plt ≥50k", "Antiko/antiagregan kontrol", "Post-bx kanama izlemi planı"]}),
-  ("US Tiroid Biyopsisi", 30, {"checklist": ["Antitrombotik durum", "US oda/iğne planı", "Kanama riski bilgilendirme"]}),
-  ("Nefrostomi", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis riski", "Sedasyon planı"]}),
-  ("PTK", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Dilatasyon/stent planı"]}),
-  ("Drenaj", 45, {"checklist": ["INR/Plt", "Antibiyotik", "Sıvı analizi planı"]}),
-  ("RFA/MWA", 90, {"checklist": ["INR/Plt", "Antiko/antiagregan", "Sedasyon/Anestezi", "Güvenlik zonu"]}),
-  ("Port Kateter", 45, {"checklist": ["Antitrombotik kontrol", "US eşliğinde giriş", "Alerji/antibiyotik", "Bakım eğitimi"]}),
-  ("Biliyer Drenaj", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis/kolanjit riski", "GFR/kontrast"]}),
-  ("TACE", 120, {"checklist": ["Karaciğer fonksiyonları", "GFR/kontrast", "Antiko/antiagregan", "Arteriyel harita"]}),
-  ("EVAR", 180, {"checklist": ["Anestezi onayı", "DAPT/antiplatelet", "GFR/kontrast", "Greft ölçü/malzeme planı"]}),
-  ("Diğer (serbest giriş)", 60, {"checklist": ["Serbest not alanını doldurun"]}),
+  ("Karotis stent", 90,  {"checklist": ["DAPT (ASA+Klopidogrel)", "GFR/kontrast", "Antitrombotik gözden geçirme"]}),
+  ("SVK", 45, {"checklist": ["Antiko/antiagregan", "US eşliğinde giriş", "Alerji/antibiyotik"]}),
+  ("Anevrizma Onarım", 180, {"checklist": ["Nöro anestezi", "Antiko/antiagregan", "Kontrast/GFR"]}),
+  ("PTA Alt Ekstremite", 120, {"checklist": ["Antitrombotik", "Distal nabız/segment", "Hemostaz"]}),
+  ("Serebral Anjiografi", 90, {"checklist": ["INR/Plt", "GFR/kontrast", "Alerji", "Giriş planı"]}),
+  ("TARE", 150, {"checklist": ["Radyasyon planlama", "Karaciğer fonk.", "Arteriyel harita"]}),
+  ("TARE MAA", 150, {"checklist": ["MAA haritalama", "Güvenlik", "Karaciğer fonk."]}),
+  ("Lenfanjiogram", 75, {"checklist": ["Alerji", "Antibiyotik", "Giriş noktası"]}),
+  ("BT Akc. Biyopsi", 60, {"checklist": ["Koag", "Antitrombotik", "Pnömotoraks bilgilendirme"]}),
+  ("US Karac. Biyopsi", 45, {"checklist": ["INR≤1.5, Plt≥50k", "Antitrombotik", "Kanama izlemi"]}),
+  ("US Tiroid Biyopsi", 30, {"checklist": ["Antitrombotik", "US oda/iğne", "Kanama riski"]}),
+  ("Nefrostomi", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis riski"]}),
+  ("PTK", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Dilatasyon/stent"]}),
+  ("Drenaj", 45, {"checklist": ["INR/Plt", "Antibiyotik", "Sıvı analizi"]}),
+  ("RFA/MWA", 90, {"checklist": ["Koag", "Antitrombotik", "Sedasyon/Anestezi"]}),
+  ("Port Kateter", 45, {"checklist": ["Antitrombotik", "US giriş", "Antibiyotik"]}),
+  ("Biliyer Drenaj", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis/kolanjit riski"]}),
+  ("TACE", 120, {"checklist": ["Karaciğer fonk.", "GFR/kontrast", "Antitrombotik", "Arteriyel harita"]}),
+  ("EVAR", 180, {"checklist": ["Anestezi", "DAPT", "GFR/kontrast", "Greft planı"]}),
+  ("Diğer (serbest giriş)", 60, {"checklist": ["Serbest not"]}),
 ]
 
+def _configure_conn(con: sqlite3.Connection):
+    cur = con.cursor()
+    cur.execute("PRAGMA journal_mode=WAL;")
+    cur.execute("PRAGMA synchronous=NORMAL;")
+    cur.execute("PRAGMA foreign_keys=ON;")
+    cur.execute("PRAGMA busy_timeout=5000;")
+    cur.close()
+
 def get_conn():
-    # check_same_thread=False: çoklu thread’lerde güvenli kullanım için
     con = sqlite3.connect(DB_PATH, check_same_thread=False)
     con.row_factory = sqlite3.Row
+    _configure_conn(con)
     return con
 
-def _migrate_add_custom_proc_name(con: sqlite3.Connection):
-    cols = [r["name"] for r in con.execute("PRAGMA table_info(appointments)").fetchall()]
-    if "custom_proc_name" not in cols:
+def _migrate(con: sqlite3.Connection):
+    cols = [r["name"] for r in con.execute("PRAGMA table_info(users)").fetchall()]
+    if "role" not in cols:
+        con.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'doctor'")
+    if "active" not in cols:
+        con.execute("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+    cols_ap = [r["name"] for r in con.execute("PRAGMA table_info(appointments)").fetchall()]
+    if "custom_proc_name" not in cols_ap:
         con.execute("ALTER TABLE appointments ADD COLUMN custom_proc_name TEXT")
-        con.commit()
+    con.commit()
 
 def init_db():
     with get_conn() as con:
         con.executescript(SCHEMA)
-        _migrate_add_custom_proc_name(con)
+        _migrate(con)
+        # default admin varsa geç
+        cnt = con.execute("SELECT COUNT(*) as c FROM users WHERE username='admin'").fetchone()["c"]
+        if cnt == 0:
+            con.execute(
+                "INSERT INTO users(username, password_hash, role, active) VALUES (?,?,?,1)",
+                ("admin", generate_password_hash("admin123"), "admin")
+            )
+            con.commit()
 
 def seed_procedures():
     with get_conn() as con:
@@ -105,3 +121,30 @@ def seed_procedures():
                 (name, dur, json.dumps(req, ensure_ascii=False))
             )
         con.commit()
+
+# --- Kullanıcı işlemleri ---
+def create_user(username: str, password_hash: str, role: str):
+    with get_conn() as con:
+        con.execute(
+            "INSERT INTO users(username, password_hash, role, active) VALUES (?,?,?,1)",
+            (username, password_hash, role)
+        )
+        con.commit()
+
+def list_users():
+    with get_conn() as con:
+        return con.execute("SELECT id, username, role, active FROM users ORDER BY username").fetchall()
+
+def set_user_active(uid: int, active: int):
+    with get_conn() as con:
+        con.execute("UPDATE users SET active=? WHERE id=?", (active, uid))
+        con.commit()
+
+def reset_user_password(uid: int, password_hash: str):
+    with get_conn() as con:
+        con.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, uid))
+        con.commit()
+
+def get_user_by_username(username: str):
+    with get_conn() as con:
+        return con.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()

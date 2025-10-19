@@ -1,70 +1,60 @@
-{% extends 'base.html' %}
-
-{% block title %}Admin Paneli - Kullanıcı Yönetimi{% endblock %}
-
+{% extends "base.html" %}
 {% block content %}
-<div class="detail-container">
-    <h2>Kullanıcı Yönetimi</h2>
+<h5>Admin Paneli — Kullanıcı Yönetimi</h5>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <div class="admin-grid">
-        <div class="user-list">
-            <h3>Mevcut Kullanıcılar</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Kullanıcı Adı</th>
-                        <th>Rol</th>
-                        <th>İşlem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td>{{ user.username }}</td>
-                        <td><span class="role-tag role-{{ user.role }}">{{ user.role }}</span></td>
-                        <td>
-                            {% if user.role != 'admin' %}
-                            <form action="{{ url_for('delete_user', user_id=user.id) }}" method="post" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?');">
-                                <button type="submit" class="button-delete">Sil</button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="add-user-form">
-            <h3>Yeni Kullanıcı Ekle</h3>
-            <form action="{{ url_for('add_user') }}" method="post">
-                <div class="form-group">
-                    <label for="username">Kullanıcı Adı:</label>
-                    <input type="text" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Şifre:</label>
-                    <input type="password" name="password" required>
-                </div>
-                <div class="form-group">
-                    <label for="role">Rol:</label>
-                    <select name="role">
-                        <option value="doktor">Doktor</option>
-                        <option value="teknisyen">Teknisyen/Hemşire</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <button type="submit" class="button-submit">Kullanıcı Ekle</button>
-            </form>
-        </div>
+<form method="post" class="card card-body mb-3">
+  <input type="hidden" name="action" value="add">
+  <div class="row g-2">
+    <div class="col-md-3"><input name="username" placeholder="kullanıcı adı" class="form-control" required></div>
+    <div class="col-md-3"><input name="password" placeholder="şifre" class="form-control" required></div>
+    <div class="col-md-3">
+      <select name="role" class="form-select">
+        <option value="doctor">doctor</option>
+        <option value="nurse">nurse</option>
+        <option value="tech">tech</option>
+        <option value="admin">admin</option>
+      </select>
     </div>
-</div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">Ekle</button></div>
+  </div>
+</form>
+
+<table class="table table-sm align-middle bg-white">
+  <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Durum</th><th class="text-end">İşlemler</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.username }}</td>
+      <td>
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="role">
+          <input type="hidden" name="id" value="{{ u.id }}">
+          <select name="role" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
+            {% for r in ['doctor','nurse','tech','admin'] %}
+              <option value="{{ r }}" {% if u.role==r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
+      <td>
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="toggle">
+          <input type="hidden" name="id" value="{{ u.id }}">
+          <button class="btn btn-sm {% if u.is_active %}btn-success{% else %}btn-secondary{% endif %}">
+            {% if u.is_active %}Aktif{% else %}Pasif{% endif %}
+          </button>
+        </form>
+      </td>
+      <td class="text-end">
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="reset">
+          <input type="hidden" name="id" value="{{ u.id }}">
+          <input type="text" name="new_password" class="form-control form-control-sm d-inline w-auto" placeholder="yeni şifre">
+          <button class="btn btn-sm btn-outline-primary">Şifre Sıfırla</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

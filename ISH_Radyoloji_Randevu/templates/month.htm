@@ -1,0 +1,34 @@
+<!-- ISH_Radyoloji_Randevu/templates/month.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a class="btn btn-outline-secondary" href="{{ url_for('month_view', year=prev_y, month=prev_m) }}">&laquo; Önceki</a>
+  <h5 class="m-0">{{ "%02d/%04d"|format(month, year) }}</h5>
+  <a class="btn btn-outline-secondary" href="{{ url_for('month_view', year=next_y, month=next_m) }}">Sonraki &raquo;</a>
+</div>
+
+<style>
+.grid-month { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; }
+.day-card { background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:10px; min-height:90px; }
+.day-card a { text-decoration:none; color:inherit; display:block; height:100%; }
+.day-num { font-weight:700; }
+.badge-mini { font-size: .75rem; }
+</style>
+
+<div class="grid-month">
+  {% for d in days %}
+  {% set iso = d.strftime("%Y-%m-%d") %}
+  <div class="day-card">
+    <a href="{{ url_for('agenda', date=iso) }}">
+      <div class="d-flex justify-content-between">
+        <span class="day-num">{{ d.day }}</span>
+        {% if count_by_day.get(iso) %}
+          <span class="badge text-bg-primary badge-mini">{{ count_by_day[iso] }}</span>
+        {% endif %}
+      </div>
+      <div class="small text-muted mt-2">Gün görünümüne git</div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

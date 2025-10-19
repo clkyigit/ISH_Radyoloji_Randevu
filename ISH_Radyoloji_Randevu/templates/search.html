@@ -1,36 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<h5>Arama</h5>
-<form method="get" action="{{ url_for('search') }}" class="d-flex gap-2 mb-3">
-  <input class="form-control" name="q" placeholder="Hasta adı" value="{{ q or '' }}">
+<form method="get" class="d-flex gap-2 mb-3">
+  <input name="q" class="form-control" placeholder="TC veya isim" value="{{ q }}">
   <button class="btn btn-outline-secondary">Ara</button>
 </form>
 
-{% if q and results|length == 0 %}
-  <div class="alert alert-warning">Sonuç bulunamadı.</div>
+{% if q and rows|length==0 %}
+  <div class="alert alert-warning">Kayıt bulunamadı.</div>
 {% endif %}
 
-{% if results and results|length > 0 %}
-  <div class="list-group">
-    {% for a in results %}
-      <div class="list-group-item {% if a.anesthesia %}anesthesia{% endif %}">
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ a.patient_name }}</strong> — {{ a.date|tr_date }}
-            <div class="small text-muted">
-              {{ a.custom_proc_name or a.proc_name }} • {{ a.duration_min }} dk
-              {% if a.anesthesia %} • <strong>Anestezi</strong>{% endif %}
-              {% if a.med_note %} • Not: {{ a.med_note }}{% endif %}
-            </div>
-          </div>
-          <form method="post" action="{{ url_for('delete_appt', appt_id=a.id) }}"
-                onsubmit="return confirm('Bu randevuyu silmek istediğinize emin misiniz?');">
-            <input type="hidden" name="day_iso" value="{{ a.date }}">
-            <button class="btn btn-sm btn-outline-danger">Sil</button>
-          </form>
-        </div>
-      </div>
-    {% endfor %}
-  </div>
-{% endif %}
+<div class="list-group">
+{% for a in rows %}
+  <a class="list-group-item list-group-item-action" href="{{ url_for('agenda', date=a.day_iso) }}">
+    {{ a.day_iso|tr_date }} — {{ a.patient_name }} — {{ a.custom_proc_name or a.proc_name }}
+    {% if a.tc_no %}<span class="text-muted small">({{ a.tc_no }})</span>{% endif %}
+  </a>
+{% endfor %}
+</div>
 {% endblock %}

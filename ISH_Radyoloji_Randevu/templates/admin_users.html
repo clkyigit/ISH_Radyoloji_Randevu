@@ -1,0 +1,61 @@
+<!-- ISH_Radyoloji_Randevu/templates/admin_users.html -->
+{% extends "base.html" %}
+{% block content %}
+<h5>Kullanıcı Yönetimi</h5>
+
+<div class="card card-body mb-3">
+  <form method="post" class="row g-2">
+    <input type="hidden" name="action" value="create">
+    <div class="col-md-3">
+      <label class="form-label">Kullanıcı adı</label>
+      <input class="form-control" name="username" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Şifre</label>
+      <input class="form-control" name="password" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Rol</label>
+      <select class="form-select" name="role">
+        <option value="doctor">doctor</option>
+        <option value="nurse">nurse</option>
+        <option value="tech">tech</option>
+        <option value="admin">admin</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary w-100">Ekle</button>
+    </div>
+  </form>
+</div>
+
+<table class="table table-sm table-bordered bg-white">
+  <thead><tr><th>ID</th><th>Kullanıcı</th><th>Rol</th><th>Durum</th><th>İşlem</th></tr></thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.role }}</td>
+      <td>{{ 'Aktif' if u.active==1 else 'Pasif' }}</td>
+      <td class="d-flex gap-2">
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="set_active">
+          <input type="hidden" name="uid" value="{{ u.id }}">
+          <input type="hidden" name="active" value="{{ 0 if u.active==1 else 1 }}">
+          <button class="btn btn-sm btn-outline-secondary">
+            {{ 'Pasifleştir' if u.active==1 else 'Aktifleştir' }}
+          </button>
+        </form>
+        <form method="post" class="d-inline" onsubmit="return confirm('Şifreyi sıfırlansın mı?')">
+          <input type="hidden" name="action" value="reset_pw">
+          <input type="hidden" name="uid" value="{{ u.id }}">
+          <input class="form-control form-control-sm" name="newpw" placeholder="Yeni şifre" required style="width:140px; display:inline;">
+          <button class="btn btn-sm btn-outline-danger">Şifre Sıfırla</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

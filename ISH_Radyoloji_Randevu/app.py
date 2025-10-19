@@ -1,18 +1,24 @@
+# ISH_Radyoloji_Randevu/app.py
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from datetime import datetime
-import json, os
+from datetime import datetime, timedelta
+import json, os, logging
 
-# db.py dosyanız aynı dizinde olmalı
-from db import get_conn, init_db, seed_procedures
+from db import get_conn, init_db, seed_procedures, DB_PATH, INSTANCE_DIR
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret")
+app.permanent_session_lifetime = timedelta(days=7)
 
-# Veritabanını hazırla
+# Logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("ir")
+
+# DB hazırla
 init_db()
 seed_procedures()
+log.info(f"DB PATH: {DB_PATH} (exists={os.path.exists(DB_PATH)}) in {INSTANCE_DIR}")
 
-# Basit kullanıcılar (opsiyon: users.json ile override)
+# Basit kullanıcılar (opsiyonel: users.json ile override)
 VALID_USERS = {"dr": {"password": "1234"}}
 try:
     with open(os.path.join(os.path.dirname(__file__), "users.json"), "r", encoding="utf-8") as f:
@@ -22,7 +28,6 @@ try:
 except FileNotFoundError:
     pass
 
-# ---- Jinja yardımcıları
 @app.context_processor
 def inject_session_user():
     return {"session_user": session.get("user")}
@@ -35,7 +40,6 @@ def tr_date(iso_yyyy_mm_dd: str) -> str:
     except Exception:
         return iso_yyyy_mm_dd
 
-# ---- Auth
 def login_required(view):
     def wrapper(*args, **kwargs):
         if not session.get("user"):
@@ -51,6 +55,7 @@ def login():
         p = (request.form.get("password") or "").strip()
         if u in VALID_USERS and VALID_USERS[u].get("password") == p:
             session["user"] = u
+            session.permanent = True
             return redirect(url_for("agenda"))
         flash("Hatalı kullanıcı adı/şifre", "danger")
     return render_template("login.html")
@@ -60,7 +65,6 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# ---- Yardımcı sorgular
 def list_procedures():
     with get_conn() as con:
         rows = con.execute(
@@ -83,7 +87,6 @@ def list_day_appointments(day_str: str):
         """, (day_str,)).fetchall()
     return rows
 
-# ---- Rotalar
 @app.route("/")
 def root():
     return redirect(url_for("agenda"))
@@ -141,14 +144,21 @@ def new():
 @app.route("/delete/<int:appt_id>", methods=["POST"])
 @login_required
 def delete_appt(appt_id: int):
-    day_iso = request.form.get("day_iso")
-    with get_conn() as con:
-        con.execute("DELETE FROM appointments WHERE id = ?", (appt_id,))
-        con.commit()
-    flash("Randevu silindi.", "success")
-    return redirect(url_for("agenda", date=day_iso or datetime.now().strftime("%Y-%m-%d")))
+    day_iso = request.form.get("day_iso") or datetime.now().strftime("%Y-%m-%d")
+    try:
+        with get_conn() as con:
+            cur = con.execute("DELETE FROM appointments WHERE id = ?", (appt_id,))
+            con.commit()
+            if cur.rowcount and cur.rowcount > 0:
+                flash("Randevu silindi.", "success")
+            else:
+                flash("Randevu bulunamadı (silinmemiş olabilir).", "warning")
+        log.info(f"DELETE appt_id={appt_id} day={day_iso} rowcount={cur.rowcount}")
+    except Exception as e:
+        log.exception("Delete failed")
+        flash(f"Silme hatası: {e}", "danger")
+    return redirect(url_for("agenda", date=day_iso))
 
-# ---- ARAMA (HASTA ADINA GÖRE)
 @app.route("/search", methods=["GET"])
 @login_required
 def search():
@@ -168,31 +178,22 @@ def search():
             """, (f"%{q}%",)).fetchall()
     return render_template("search.html", q=q, results=results, user=session.get("user", ""))
 
-# ---- Sağlık/Teşhis uçları
 @app.route("/healthz")
 def healthz():
     try:
         with get_conn() as con:
             con.execute("SELECT 1")
-        return {"ok": True}, 200
+        return {"ok": True, "db_path": str(DB_PATH)}, 200
     except Exception as e:
         return {"ok": False, "error": str(e)}, 500
 
 @app.route("/diag")
 def diag():
-    from db import DB_PATH, INSTANCE_DIR
     try:
         info = {
-            "pwd": os.getcwd(),
-            "app_root_path": app.root_path,
-            "db_dir": str(INSTANCE_DIR),
             "db_path": str(DB_PATH),
             "db_exists": os.path.exists(DB_PATH),
-            "templates_dir": os.path.join(app.root_path, "templates"),
-            "static_dir": os.path.join(app.root_path, "static"),
-            "has_login_html": os.path.exists(os.path.join(app.root_path, "templates", "login.html")),
-            "has_agenda_html": os.path.exists(os.path.join(app.root_path, "templates", "agenda.html")),
-            "has_search_html": os.path.exists(os.path.join(app.root_path, "templates", "search.html")),
+            "instance_dir": str(INSTANCE_DIR),
             "session_user": session.get("user"),
         }
         with get_conn() as con:
@@ -201,3 +202,7 @@ def diag():
         return info, 200
     except Exception as e:
         return {"error": str(e)}, 500
+
+if __name__ == "__main__":
+    # Lokal test için
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5001)))

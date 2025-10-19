@@ -1,31 +1,28 @@
-import sqlite3
-import json
-import os
-import sys
+# ISH_Radyoloji_Randevu/db.py
+import os, sqlite3, json, shutil
 from pathlib import Path
 
-def _app_base_dir() -> Path:
-    # EXE/paket/script hepsinde kök klasörü güvenle bul
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent
-
-BASE_DIR = _app_base_dir()
-
-# ---- DB dizinini belirle ----
-# Öncelik: Ortam değişkeni DB_DIR (Render için önerilen)
-db_dir_env = os.environ.get("DB_DIR")
-if db_dir_env:
-    INSTANCE_DIR = Path(db_dir_env)
-# Render çalışma ortamında güvenli varsayılan (yazılabilir)
-elif os.environ.get("RENDER", "") or os.environ.get("RENDER_SERVICE_ID", ""):
-    INSTANCE_DIR = Path("/var/tmp/ir_randevu_instance")
-# Geliştirme/Windows için yerel "instance/" klasörü
-else:
-    INSTANCE_DIR = BASE_DIR / "instance"
+# 1) Kalıcı dizin: ENV > /var/data/ir_randevu_instance > ./instance
+DB_DIR = os.environ.get("DB_DIR") or "/var/data/ir_randevu_instance"
+INSTANCE_DIR = Path(DB_DIR)
+LEGACY_INSTANCE_DIR = Path(__file__).resolve().parent / "instance"  # eski konum
 
 INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
+
 DB_PATH = INSTANCE_DIR / "app.db"
+
+# 2) İlk açılışta eski dosyayı kalıcı diske taşı (varsa)
+def _maybe_migrate_legacy_db():
+    legacy_db = LEGACY_INSTANCE_DIR / "app.db"
+    if legacy_db.exists() and not DB_PATH.exists():
+        INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(legacy_db, DB_PATH)
+        except Exception:
+            # taşıma başarısızsa, yeni db zaten oluşturulacak
+            pass
+
+_maybe_migrate_legacy_db()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -48,7 +45,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   patient_name TEXT NOT NULL,
   procedure_type_id INTEGER NOT NULL,
   duration_min INTEGER NOT NULL,
-  date TEXT NOT NULL,                         -- YYYY-MM-DD
+  date TEXT NOT NULL,
   anticoagulant INTEGER NOT NULL DEFAULT 0,
   antiplatelet INTEGER NOT NULL DEFAULT 0,
   anesthesia INTEGER NOT NULL DEFAULT 0,
@@ -61,30 +58,31 @@ CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);
 """
 
 SEED_PROCS = [
-  ("Karotis stent", 90,  {"checklist": ["DAPT (ASA + Klopidogrel)", "GFR/kontrast notu", "Son 7 günde plaket/lab"]}),
-  ("TACE", 120,          {"checklist": ["GFR/Cr", "Bilirubin/INR", "Antiko/antiagregan gözden geçirme"]}),
-  ("EVAR", 180,          {"checklist": ["DAPT/antiagregan", "GFR/kontrast", "Anestezi onayı"]}),
-  ("BT akciğer biyopsisi", 60, {"checklist": ["DOAC 48–72h kesim", "INR ≤1.5, Plt ≥50k"]}),
-  ("US karaciğer biyopsisi", 45, {"checklist": ["INR ≤1.5, Plt ≥50k", "Antiko/antiagregan kontrol"]}),
-  ("US tiroid biyopsisi", 30, {"checklist": ["Antiagregan gözden geçirme"]}),
-  ("Nefrostomi", 60,     {"checklist": ["INR/Plt", "Antibiyotik"]}),
-  ("PTK", 60,            {"checklist": ["INR/Plt", "Antibiyotik"]}),
-  ("Drenaj", 45,         {"checklist": ["INR/Plt", "Antibiyotik"]}),
-  ("RFA/MWA", 90,        {"checklist": ["INR/Plt", "Antiko/antiagregan", "Sedasyon/Anestezi"]}),
-  ("Port kateter", 45,   {"checklist": ["Antiagregan/antikoagülan kontrol"]}),
-  ("Biliyer drenaj", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis riski notu"]}),
-  ("SVK", 90, {"checklist": ["Antiko/antiagregan kontrol", "Giriş yolu hazırlığı"]}),
-  ("Anevrizma Onarım", 180, {"checklist": ["Nöro-anestezi onayı", "Antiko/antiagregan yönetimi", "Kontrast/renal"]}),
-  ("PTA Alt Ekstremite", 120, {"checklist": ["Antiko/antiagregan kontrol", "Distal nabız/segment planı"]}),
-  ("Serebral Anjiografi", 90, {"checklist": ["INR/Plt", "GFR", "Giriş planı (radial/femoral)"]}),
-  ("TARE", 150, {"checklist": ["Radyasyon planlama", "Karaciğer fonksiyonları", "Arteriyel haritalama"]}),
-  ("TARE MAA", 150, {"checklist": ["MAA haritalama", "Radyasyon güvenliği"]}),
-  ("Lenfanjiogram", 75, {"checklist": ["Kontrast alerji sorgusu", "Antibiyotik (kurum tercihi)"]}),
+  ("Karotis stent", 90,  {"checklist": ["DAPT (ASA + Klopidogrel)", "GFR/kontrast notu", "Son 7 günde antitrombosit/antiko gözden geçirme"]}),
+  ("SVK", 45, {"checklist": ["Antiko/antiagregan kontrol", "US eşliğinde giriş planı", "Alerji/antibiyotik profilaksisi"]}),
+  ("Anevrizma Onarım", 180, {"checklist": ["Nöro anestezi onayı", "Antiko/antiagregan yönetimi", "Kontrast/renal fonksiyon"]}),
+  ("PTA Alt Ekstremite", 120, {"checklist": ["Antiko/antiagregan kontrol", "Distal nabız/segment planı", "Giriş yolu ve hemostaz planı"]}),
+  ("Serebral Anjiografi", 90, {"checklist": ["INR/Plt", "GFR/kontrast", "Alerji sorgusu", "Giriş planı (radial/femoral)"]}),
+  ("TARE", 150, {"checklist": ["Radyasyon planlama", "Karaciğer fonksiyonları", "Arteriyel haritalama", "Non-target emboli önlemleri"]}),
+  ("TARE MAA", 150, {"checklist": ["MAA haritalama", "Radyasyon güvenliği", "Karaciğer fonksiyonları"]}),
+  ("Lenfanjiogram", 75, {"checklist": ["Kontrast alerji sorgusu", "Antibiyotik profilaksisi (kurum tercihi)", "Giriş noktası planı"]}),
+  ("BT Akciğer Biyopsisi", 60, {"checklist": ["Koag (INR ≤1.5, Plt ≥50k öneri)", "Antitrombotik ilaçlar", "Pnömotoraks bilgilendirme"]}),
+  ("US Karaciğer Biyopsisi", 45, {"checklist": ["INR ≤1.5, Plt ≥50k", "Antiko/antiagregan kontrol", "Post-bx kanama izlemi planı"]}),
+  ("US Tiroid Biyopsisi", 30, {"checklist": ["Antitrombotik durum", "US oda/iğne planı", "Kanama riski bilgilendirme"]}),
+  ("Nefrostomi", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis riski", "Sedasyon planı"]}),
+  ("PTK", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Dilatasyon/stent planı"]}),
+  ("Drenaj", 45, {"checklist": ["INR/Plt", "Antibiyotik", "Sıvı analizi planı"]}),
+  ("RFA/MWA", 90, {"checklist": ["INR/Plt", "Antiko/antiagregan", "Sedasyon/Anestezi", "Güvenlik zonu"]}),
+  ("Port Kateter", 45, {"checklist": ["Antitrombotik kontrol", "US eşliğinde giriş", "Alerji/antibiyotik", "Bakım eğitimi"]}),
+  ("Biliyer Drenaj", 60, {"checklist": ["INR/Plt", "Antibiyotik", "Sepsis/kolanjit riski", "GFR/kontrast"]}),
+  ("TACE", 120, {"checklist": ["Karaciğer fonksiyonları", "GFR/kontrast", "Antiko/antiagregan", "Arteriyel harita"]}),
+  ("EVAR", 180, {"checklist": ["Anestezi onayı", "DAPT/antiplatelet", "GFR/kontrast", "Greft ölçü/malzeme planı"]}),
   ("Diğer (serbest giriş)", 60, {"checklist": ["Serbest not alanını doldurun"]}),
 ]
 
 def get_conn():
-    con = sqlite3.connect(DB_PATH)
+    # check_same_thread=False: çoklu thread’lerde güvenli kullanım için
+    con = sqlite3.connect(DB_PATH, check_same_thread=False)
     con.row_factory = sqlite3.Row
     return con
 

@@ -1,0 +1,141 @@
+/* Genel Sayfa Stilleri ve Arka Plan Resmi */
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; background-image: linear-gradient(rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.97)), url(https://www.dirjournal.com/info/wp-content/uploads/2019/12/interventional-radiology.jpg); background-size: cover; background-position: center; background-attachment: fixed; margin: 0; color: #333; }
+.header { background-color: #fff; padding: 10px 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-bottom: 1px solid #eee; }
+.header h1 { margin: 0; font-size: 1.5em; color: #333; }
+.app-container { display: flex; padding: 20px; gap: 20px; align-items: flex-start; }
+
+/* --- GÜNCELLENMİŞ KENAR ÇUBUĞU (SIDEBAR) STİLLERİ --- */
+.sidebar { flex: 0 0 280px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.sidebar-section { padding: 20px; border-bottom: 1px solid #f0f0f0; }
+.sidebar-section:last-child { border-bottom: none; }
+.sidebar h3 { margin-top: 0; margin-bottom: 15px; font-size: 1.1em; color: #333; }
+
+/* Modern "Yeni Randevu Ekle" Butonu */
+.button-add-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 15px;
+    background-color: #0d6efd;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 1.1em;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+.button-add-new:hover { background-color: #0b5ed7; transform: translateY(-1px); }
+.plus-icon { font-size: 1.5em; margin-right: 10px; line-height: 1; }
+
+/* Arama Formu Stilleri */
+.search-form input, .search-form button, .search-form .radio-group-search { width: 100%; box-sizing: border-box; }
+.radio-group-search { font-size: 0.9em; margin-top: 10px; margin-bottom: 15px; }
+.radio-group-search input { margin-right: 5px; }
+.radio-group-search label { margin-right: 15px; font-weight: normal; }
+.button-search { padding: 10px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; }
+.button-search:hover { background-color: #5a6268; }
+.search-box { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+
+/* Bugünün Randevuları Listesi */
+.today-list { list-style-type: none; padding: 0; margin: 0; }
+.today-list li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+.today-list li:last-child { border-bottom: none; }
+.today-list li small { display: block; color: #6c757d; }
+.no-appointments { color: #6c757d; font-style: italic; }
+
+/* Ana İçerik (Takvim) Stilleri */
+.main-content { flex-grow: 1; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+/* Detay ve Arama Sonuç Sayfaları için stiller */
+.detail-container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); max-width: 900px; margin: 20px auto; }
+.detail-container h2 small { font-size: 0.6em; color: #6c757d; font-weight: normal; }
+.daily-list { list-style-type: none; padding: 0; }
+.daily-list li { padding: 15px; border: 1px solid #eee; border-radius: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.tag { padding: 4px 8px; border-radius: 4px; color: white; font-size: 0.8em; font-weight: bold; }
+.total-time { margin-top: 20px; padding-top: 20px; border-top: 2px solid #0d6efd; text-align: right; font-size: 1.2em; }
+
+/* Diğer Form Stilleri */
+.form-container.single-page-form, .form-actions, fieldset, legend, .form-row, .form-group, .radio-group, .checklist, .checkbox-group, .button-submit, .button-cancel { /* Bu stiller önceki mesajdan alınmıştır ve aynı kalır */ }
+.form-container.single-page-form { max-width: 1100px; margin: 20px auto; background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.form-grid { display: flex; gap: 30px; }
+.form-column { flex: 1; }
+fieldset { border: 1px solid #e0e0e0; border-radius: 5px; padding: 20px; margin-bottom: 20px; }
+legend { padding: 0 10px; font-weight: bold; color: #0056b3; }
+.form-row { display: flex; gap: 20px; }
+.form-group { flex: 1; margin-bottom: 15px; }
+label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
+input[type="text"], input[type="date"], input[type="time"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+.button-submit, .button-cancel { padding: 12px 25px; color: white; text-align: center; text-decoration: none; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: background-color 0.2s, transform 0.1s; }
+.button-submit { background-color: #28a745; }
+.button-submit:hover { background-color: #218838; }
+.button-cancel { background-color: #6c757d; }
+.button-cancel:hover { background-color: #5a6268; }
+/* Login Sayfası Stilleri */
+.login-page { display: flex; align-items: center; justify-content: center; height: 100vh; }
+.login-container { width: 100%; max-width: 400px; padding: 40px; background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+.login-container h2 { margin-top: 0; }
+.login-container .form-group { text-align: left; }
+.login-container .button-submit { width: 100%; margin-top: 15px; }
+.flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+
+/* Header Kullanıcı Bilgisi ve Çıkış Butonu */
+.header { display: flex; justify-content: space-between; align-items: center; }
+.user-info { display: flex; align-items: center; gap: 15px; }
+.logout-button { background-color: #dc3545; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; }
+.logout-button:hover { background-color: #c82333; }
+/* --- ADMİN PANELİ STİLLERİ --- */
+.flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+.flash-danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+.admin-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+.admin-grid table { width: 100%; border-collapse: collapse; }
+.admin-grid th, .admin-grid td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+.admin-grid th { background-color: #f2f2f2; }
+.role-tag { padding: 4px 8px; border-radius: 4px; color: white; font-size: 0.8em; font-weight: bold; }
+.role-admin { background-color: #d9534f; }
+.role-doktor { background-color: #5bc0de; }
+.role-teknisyen { background-color: #5cb85c; }
+.button-delete { background-color: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; }
+.button-delete:hover { background-color: #c82333; }
+.add-user-form h3 { margin-top: 0; }
+.add-user-form .button-submit { width: 100%; margin-top: 10px; }
+.admin-button { background-color: #f0ad4e; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; }
+.admin-button:hover { background-color: #ec971f; }
+/* Gün Detay Sayfası Stilleri */
+.islem-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.islem-info {
+    flex-grow: 1;
+}
+.islem-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0; /* Butonların küçülmesini engelle */
+}
+.note-display {
+    font-size: 0.9em;
+    color: #555;
+    background-color: #f8f9fa;
+    border-left: 3px solid #0d6efd;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 3px;
+}
+.button-edit {
+    background-color: #ffc107;
+    color: #212529;
+    padding: 5px 10px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.button-edit:hover {
+    background-color: #e0a800;
+}

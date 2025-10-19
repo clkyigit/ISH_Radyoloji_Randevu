@@ -1,9 +1,11 @@
-from db import get_conn, init_db, seed_procedures   # ← mutlak import
+from .db import get_conn, init_db, seed_procedures
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
 import json
-app = Flask(__name__)  # ← varsayılan yollar: ./templates ve ./static
-app.secret_key = "dev-secret"  # (tersine, prod’da ENV değişkeninden alabilirsin)
+from .db import get_conn, init_db, seed_procedures
+
+app = Flask(__name__, template_folder="../templates", static_folder="../static")
+app.secret_key = "dev-secret"
 
 init_db()
 seed_procedures()

@@ -1,88 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-<h5>{{ day_iso|tr_date }} — Yeni Randevu</h5>
-<form method="post" class="card card-body">
-  <div class="row g-3">
-    <div class="col-md-3">
-      <label class="form-label">TC Kimlik No (opsiyonel)</label>
-      <input name="tc_no" class="form-control" maxlength="11">
+<h3>{{ day_iso|tr_date }} — Yeni Randevu</h3>
+
+<form method="post" class="card">
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+    <div>
+      <label>Hasta adı</label>
+      <input name="patient_name" required class="form-control" style="width:100%">
     </div>
-    <div class="col-md-5">
-      <label class="form-label">Hasta adı</label>
-      <input name="patient_name" class="form-control" required>
+    <div>
+      <label>TC Kimlik (opsiyonel)</label>
+      <input name="tc_kimlik" class="form-control" style="width:100%">
     </div>
 
-    <div class="col-md-4">
-      <label class="form-label">İşlem türü</label>
-      <select name="procedure_type_id" id="proc" class="form-select" required>
-        <option value="" selected disabled>Seçiniz…</option>
+    <div>
+      <label>İşlem türü</label>
+      <select name="procedure_type_id" id="proc" required style="width:100%">
+        <option value="" disabled selected>Seçiniz…</option>
         {% for p in procs %}
-          <option value="{{ p.id }}"
-                  data-name="{{ p.name }}"
-                  data-dur="{{ p.default_duration_min }}"
-                  data-req='{{ p.requirements_json|safe }}'>{{ p.name }}</option>
+          <option value="{{ p.id }}" data-name="{{ p.name }}" data-dur="{{ p.default_duration_min }}" data-req='{{ p.requirements_json|safe }}'>{{ p.name }}</option>
         {% endfor %}
       </select>
     </div>
 
-    <div class="col-md-2">
-      <label class="form-label">Süre (dk)</label>
-      <input name="duration_min" id="dur" type="number" class="form-control" min="10" step="5" value="60" required>
+    <div>
+      <label>Süre (dk)</label>
+      <input name="duration_min" id="dur" type="number" min="10" step="5" value="60" required>
     </div>
 
-    <div class="col-md-6" id="customWrap" style="display:none;">
-      <label class="form-label">İşlem adı (Diğer)</label>
-      <input name="custom_proc_name" id="custom_proc_name" class="form-control" placeholder="Özel işlem adı">
+    <div id="customWrap" style="grid-column:1/-1; display:none;">
+      <label>İşlem adı (Diğer)</label>
+      <input name="custom_proc_name" id="customName" class="form-control" style="width:100%" placeholder="Örn. Özel işlem adı">
+      <small class="muted">Sadece “Diğer (serbest giriş)” seçildiğinde kullanın.</small>
     </div>
 
-    <div class="col-md-12">
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" name="anticoagulant" id="antico">
-        <label class="form-check-label" for="antico">Antikoagülan</label>
+    <div style="grid-column:1/-1;">
+      <label>İşlem Notu</label>
+      <input name="med_note" class="form-control" style="width:100%" placeholder="Örn. ASA+Klopidogrel; özel istek vb.">
+    </div>
+
+    <div style="grid-column:1/-1;">
+      <label>Öneri checklist (opsiyonel)</label>
+      <div id="reqBox" style="display:flex;flex-direction:column;gap:4px;"></div>
+      <small class="muted">İşaretlemek zorunlu değil.</small>
+    </div>
+
+    <div style="grid-column:1/-1;">
+      <label>İlaç/Anestezi</label>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <label><input type="checkbox" name="anticoagulant"> Antikoagülan</label>
+        <label><input type="checkbox" name="antiplatelet"> Antiagregan</label>
+        <label><input type="checkbox" name="anesthesia"> Anestezi uygulanacak</label>
       </div>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" name="antiplatelet" id="antiag">
-        <label class="form-check-label" for="antiag">Antiagregan</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" name="anesthesia" id="anes">
-        <label class="form-check-label" for="anes">Anestezi uygulanacak</label>
-      </div>
-    </div>
-
-    <div class="col-md-12">
-      <label class="form-label">İşlem Notu</label>
-      <input name="med_note" class="form-control" placeholder="ASA+Klopidogrel, özel istek vb.">
-    </div>
-
-    <div class="col-md-6">
-      <label class="form-label">Lab hatırlatması (opsiyonel)</label>
-      <input name="prep_lab" class="form-control" placeholder="INR ≤1.5, Plt ≥50k, GFR vb.">
-    </div>
-    <div class="col-md-6">
-      <label class="form-label">Hazırlık notu (opsiyonel)</label>
-      <input name="prep_prep" class="form-control" placeholder="Açlık, ilaç kesimi vb.">
     </div>
   </div>
 
-  <div class="mt-3 d-flex gap-2">
+  <div style="margin-top:12px;display:flex;gap:8px;">
     <button class="btn btn-primary">Kaydet</button>
-    <a class="btn btn-outline-secondary" href="{{ url_for('agenda', date=day_iso) }}">Geri</a>
+    <a class="btn" href="{{ url_for('agenda', date=day_iso) }}">Geri</a>
   </div>
 </form>
 
 <script>
-  const procSel = document.getElementById('proc');
-  const durInput = document.getElementById('dur');
+  const procSel    = document.getElementById('proc');
+  const durInput   = document.getElementById('dur');
+  const reqBox     = document.getElementById('reqBox');
   const customWrap = document.getElementById('customWrap');
-  const customName = document.getElementById('custom_proc_name');
+  const customName = document.getElementById('customName');
 
   function updateForProc() {
     const opt = procSel.selectedOptions[0];
     if (!opt) return;
     const dur = opt.getAttribute('data-dur');
+    const req = opt.getAttribute('data-req');
     const name = (opt.getAttribute('data-name') || "").toLowerCase();
+
     if (dur) durInput.value = dur;
+
+    reqBox.innerHTML = "";
+    if (req) {
+      try {
+        const data = JSON.parse(req);
+        (data.checklist || []).forEach((item, idx) => {
+          const id = `req_${idx}`;
+          reqBox.insertAdjacentHTML('beforeend',
+            `<label><input type="checkbox" name="req_checked" value="${item}" id="${id}"> ${item}</label>`);
+        });
+      } catch {}
+    }
+
     if (name.includes("diğer")) {
       customWrap.style.display = '';
     } else {
@@ -90,6 +96,7 @@
       customName.value = '';
     }
   }
+
   procSel.addEventListener('change', updateForProc);
 </script>
 {% endblock %}

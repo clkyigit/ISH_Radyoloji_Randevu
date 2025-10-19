@@ -1,20 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<form method="get" class="d-flex gap-2 mb-3">
-  <input name="q" class="form-control" placeholder="TC veya isim" value="{{ q }}">
-  <button class="btn btn-outline-secondary">Ara</button>
+<h3>Arama</h3>
+<form method="get" action="{{ url_for('search') }}" style="display:flex;gap:8px;margin-bottom:12px;">
+  <input name="q" value="{{ q }}" placeholder="Hasta adı ya da TC" style="width:280px">
+  <button class="btn">Ara</button>
 </form>
 
-{% if q and rows|length==0 %}
-  <div class="alert alert-warning">Kayıt bulunamadı.</div>
+{% if rows|length == 0 and q %}
+  <div class="alert">Sonuç bulunamadı.</div>
 {% endif %}
 
 <div class="list-group">
-{% for a in rows %}
-  <a class="list-group-item list-group-item-action" href="{{ url_for('agenda', date=a.day_iso) }}">
-    {{ a.day_iso|tr_date }} — {{ a.patient_name }} — {{ a.custom_proc_name or a.proc_name }}
-    {% if a.tc_no %}<span class="text-muted small">({{ a.tc_no }})</span>{% endif %}
-  </a>
-{% endfor %}
+  {% for r in rows %}
+    <div class="card">
+      <div><strong>{{ r.proc_name }}</strong> — {{ r.duration_min }} dk</div>
+      <div>Hasta: {{ r.patient_name }}{% if r.tc_kimlik %} — <span class="muted">{{ r.tc_kimlik }}</span>{% endif %}</div>
+      <div class="muted">Tarih: {{ r.date|tr_date }}</div>
+    </div>
+  {% endfor %}
 </div>
 {% endblock %}

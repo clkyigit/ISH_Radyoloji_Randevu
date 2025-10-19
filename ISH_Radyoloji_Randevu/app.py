@@ -1,96 +1,23 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from datetime import datetime, date, timedelta
-import sqlite3, json
-from pathlib import Path
-from werkzeug.security import generate_password_hash, check_password_hash
+# app.py
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from datetime import datetime
+import json
+from db import get_conn, init_db_and_seed
 
-APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "instance" / "app.db"
+app = Flask(__name__, template_folder="templates", static_folder="static")
+app.secret_key = "dev-secret"
 
-app = Flask(__name__)
-app.secret_key = "dev-secret"           # prod’da env’den okuyun
+# DB şema + seed (proje açılır açılmaz güvenli)
+init_db_and_seed()
 
-# ---------------------- DB helpers ----------------------
-def get_conn():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+# Basit kullanıcılar (şimdilik bellek içi)
+VALID_USERS = {
+    "admin":  {"password": "admin",  "role": "admin"},
+    "dr":     {"password": "1234",   "role": "doktor"},
+    "hemsire":{"password": "1234",   "role": "goruntule"},
+    "teknik": {"password": "1234",   "role": "goruntule"},
+}
 
-def init_db():
-    with get_conn() as con:
-        con.executescript("""
-        CREATE TABLE IF NOT EXISTS users(
-          id INTEGER PRIMARY KEY,
-          username TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'doctor',   -- doctor | nurse | tech | admin
-          is_active INTEGER NOT NULL DEFAULT 1
-        );
-
-        CREATE TABLE IF NOT EXISTS procedure_types(
-          id INTEGER PRIMARY KEY,
-          name TEXT UNIQUE NOT NULL,
-          default_duration_min INTEGER NOT NULL DEFAULT 60,
-          requirements_json TEXT,
-          active INTEGER NOT NULL DEFAULT 1
-        );
-
-        CREATE TABLE IF NOT EXISTS appointments(
-          id INTEGER PRIMARY KEY,
-          tc_no TEXT,
-          patient_name TEXT NOT NULL,
-          procedure_type_id INTEGER NOT NULL,
-          custom_proc_name TEXT,
-          duration_min INTEGER NOT NULL DEFAULT 60,
-          day_iso TEXT NOT NULL,                 -- YYYY-MM-DD (saat yok)
-          anticoagulant INTEGER NOT NULL DEFAULT 0,
-          antiplatelet INTEGER NOT NULL DEFAULT 0,
-          anesthesia INTEGER NOT NULL DEFAULT 0,
-          med_note TEXT,
-          prep_json TEXT,                        -- lab/ hazırlık hatırlatmaları (opsiyonel)
-          doctor_username TEXT NOT NULL,
-          created_at TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_appt_day ON appointments(day_iso);
-        """)
-        con.commit()
-
-def ensure_first_admin():
-    """Kullanıcı yoksa otomatik admin ekle."""
-    with get_conn() as con:
-        n = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if n == 0:
-            con.execute(
-                "INSERT INTO users(username, password_hash, role) VALUES (?,?,?)",
-                ("admin", generate_password_hash("admin123"), "admin")
-            )
-            con.commit()
-
-def list_procedures():
-    with get_conn() as con:
-        rows = con.execute(
-            "SELECT id, name, default_duration_min, requirements_json FROM procedure_types WHERE active=1 ORDER BY name"
-        ).fetchall()
-    return rows
-
-def load_day(day_iso:str):
-    with get_conn() as con:
-        rows = con.execute("""
-          SELECT a.*, pt.name AS proc_name
-          FROM appointments a
-          JOIN procedure_types pt ON pt.id = a.procedure_type_id
-          WHERE a.day_iso = ?
-          ORDER BY a.id DESC
-        """, (day_iso,)).fetchall()
-    return rows
-
-# ---------------------- boot ----------------------
-init_db()
-ensure_first_admin()
-
-# ---------------------- auth helpers ----------------------
 def login_required(view):
     def wrapper(*args, **kwargs):
         if not session.get("user"):
@@ -99,22 +26,6 @@ def login_required(view):
     wrapper.__name__ = view.__name__
     return wrapper
 
-def role_required(*roles):
-    def decorator(view):
-        def wrapper(*args, **kwargs):
-            u = session.get("user")
-            r = session.get("role")
-            if not u:
-                return redirect(url_for("login"))
-            if roles and r not in roles:
-                flash("Bu sayfa için yetkiniz yok.", "warning")
-                return redirect(url_for("agenda"))
-            return view(*args, **kwargs)
-        wrapper.__name__ = view.__name__
-        return wrapper
-    return decorator
-
-# ---------------------- filters ----------------------
 @app.template_filter("tr_date")
 def tr_date(iso_yyyy_mm_dd: str) -> str:
     try:
@@ -123,19 +34,42 @@ def tr_date(iso_yyyy_mm_dd: str) -> str:
     except Exception:
         return iso_yyyy_mm_dd
 
-# ---------------------- routes: auth ----------------------
+def list_procedures():
+    with get_conn() as con:
+        return con.execute(
+            "SELECT id, name, default_duration_min, requirements_json "
+            "FROM procedure_types WHERE active=1 ORDER BY name"
+        ).fetchall()
+
+def list_day_appointments(day_str):
+    with get_conn() as con:
+        return con.execute("""
+            SELECT a.id, a.patient_name, a.tc_kimlik, a.date, a.duration_min,
+                   a.anticoagulant, a.antiplatelet, a.anesthesia, a.med_note,
+                   a.custom_proc_name,
+                   pt.name AS proc_name
+            FROM appointments a
+            JOIN procedure_types pt ON pt.id = a.procedure_type_id
+            WHERE a.date = ?
+            ORDER BY a.id DESC
+        """, (day_str,)).fetchall()
+
+@app.route("/")
+def root():
+    return redirect(url_for("agenda"))
+
+# ---------- Auth ----------
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method == "POST":
         u = request.form.get("username","").strip()
         p = request.form.get("password","").strip()
-        with get_conn() as con:
-            row = con.execute("SELECT * FROM users WHERE username=? AND is_active=1", (u,)).fetchone()
-        if row and check_password_hash(row["password_hash"], p):
-            session["user"] = row["username"]
-            session["role"] = row["role"]
+        if u in VALID_USERS and VALID_USERS[u]["password"] == p:
+            session["user"] = u
+            session["role"] = VALID_USERS[u]["role"]
+            flash("Giriş başarılı", "success")
             return redirect(url_for("agenda"))
-        flash("Hatalı kullanıcı adı/şifre.", "danger")
+        flash("Hatalı kullanıcı adı/şifre", "danger")
     return render_template("login.html")
 
 @app.route("/logout")
@@ -143,160 +77,99 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# ---------------------- routes: calendar ----------------------
-@app.route("/")
-def root():
-    return redirect(url_for("month"))
-
-@app.route("/month")
-@login_required
-def month():
-    """Ay görünümü: YYYY-MM param veya bugünün ayı."""
-    ym = request.args.get("month")  # "YYYY-MM"
-    today = date.today()
-    if ym:
-        year, mon = map(int, ym.split("-"))
-        first = date(year, mon, 1)
-    else:
-        first = date(today.year, today.month, 1)
-
-    # ayın günleri + baş/son doldurma
-    start_wd = (first.weekday() + 1) % 7  # pzt=0 -> pazar=0 dönüşümü
-    days_in_month = (date(first.year + first.month//12, (first.month % 12)+1, 1) - timedelta(days=1)).day
-    grid = []
-    cur = first - timedelta(days=start_wd)
-    for _ in range(6):  # 6 hafta satırı
-        week = []
-        for _ in range(7):
-            week.append(cur)
-            cur += timedelta(days=1)
-        grid.append(week)
-
-    prev_month = (first - timedelta(days=1)).replace(day=1)
-    next_month = (date(first.year + first.month//12, (first.month % 12)+1, 1))
-
-    return render_template("month.html",
-                           first=first, grid=grid, today=today,
-                           prev_month=prev_month.strftime("%Y-%m"),
-                           next_month=next_month.strftime("%Y-%m"))
-
+# ---------- Randevu Görüntüleme ----------
 @app.route("/agenda")
 @login_required
 def agenda():
-    day_iso = request.args.get("date") or date.today().strftime("%Y-%m-%d")
-    appts = load_day(day_iso)
+    day_iso = request.args.get("date") or datetime.now().strftime("%Y-%m-%d")
+    appts = list_day_appointments(day_iso)
     return render_template("agenda.html", day_iso=day_iso, appts=appts, user=session.get("user",""))
 
-# ---------------------- routes: search ----------------------
+# Basit arama (TC veya isim içeren)
 @app.route("/search")
 @login_required
 def search():
-    q = request.args.get("q","").strip()
+    q = (request.args.get("q") or "").strip()
     rows = []
     if q:
+        like = f"%{q}%"
         with get_conn() as con:
             rows = con.execute("""
-              SELECT a.*, pt.name AS proc_name
-              FROM appointments a
-              JOIN procedure_types pt ON pt.id = a.procedure_type_id
-              WHERE a.tc_no LIKE ? OR a.patient_name LIKE ?
-              ORDER BY a.day_iso DESC, a.id DESC
-            """, (f"%{q}%", f"%{q}%")).fetchall()
+                SELECT a.id, a.patient_name, a.tc_kimlik, a.date, a.duration_min,
+                       pt.name AS proc_name
+                FROM appointments a
+                JOIN procedure_types pt ON pt.id = a.procedure_type_id
+                WHERE a.patient_name LIKE ? OR a.tc_kimlik LIKE ?
+                ORDER BY a.date DESC, a.id DESC
+            """, (like, like)).fetchall()
     return render_template("search.html", q=q, rows=rows)
 
-# ---------------------- routes: new / delete ----------------------
+# ---------- Yeni Randevu ----------
 @app.route("/new", methods=["GET","POST"])
 @login_required
 def new():
-    day_iso = request.args.get("date") or date.today().strftime("%Y-%m-%d")
+    day_iso = request.args.get("date") or datetime.now().strftime("%Y-%m-%d")
     procs = list_procedures()
-
     if request.method == "POST":
-        f = request.form
-        patient = f.get("patient_name","").strip()
-        tc_no  = f.get("tc_no","").strip()
-        proc_id = int(f.get("procedure_type_id"))
-        duration = int(f.get("duration_min") or 60)
-        antico = 1 if f.get("anticoagulant")=="on" else 0
-        antiag = 1 if f.get("antiplatelet")=="on" else 0
-        anes   = 1 if f.get("anesthesia")=="on" else 0
-        med_note = f.get("med_note","").strip()
-        custom_proc = (f.get("custom_proc_name","") or "").strip()
+        patient = request.form.get("patient_name","").strip()
+        tcno    = (request.form.get("tc_kimlik","") or "").strip()
+        proc_id = int(request.form.get("procedure_type_id"))
+        duration = int(request.form.get("duration_min"))
+        antico = 1 if request.form.get("anticoagulant") == "on" else 0
+        antip  = 1 if request.form.get("antiplatelet") == "on" else 0
+        anes   = 1 if request.form.get("anesthesia") == "on" else 0
+        med_note = request.form.get("med_note","").strip()
+        custom_proc_name = (request.form.get("custom_proc_name","") or "").strip()
 
-        # opsiyonel hazırlık/lab notlarını tek json alanında saklayalım
-        prep = {
-            "lab": f.get("prep_lab","").strip(),
-            "hazirlik": f.get("prep_prep","").strip()
-        }
+        checked = request.form.getlist("req_checked")
+        req_json = json.dumps({"checked": checked}, ensure_ascii=False)
+
+        if not patient:
+            flash("Hasta adı zorunludur.", "warning")
+            return redirect(url_for("new", date=day_iso))
 
         with get_conn() as con:
             con.execute("""
-              INSERT INTO appointments
-              (tc_no, patient_name, procedure_type_id, custom_proc_name, duration_min, day_iso,
-               anticoagulant, antiplatelet, anesthesia, med_note, prep_json, doctor_username, created_at)
-              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """, (tc_no, patient, proc_id, custom_proc, duration, day_iso,
-                  antico, antiag, anes, med_note, json.dumps(prep, ensure_ascii=False),
-                  session["user"], datetime.now().isoformat(timespec="seconds")))
+                INSERT INTO appointments
+                 (patient_name, tc_kimlik, procedure_type_id, duration_min, date,
+                  anticoagulant, antiplatelet, anesthesia, med_note, req_checks_json,
+                  doctor_username, custom_proc_name)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (patient, tcno, proc_id, duration, day_iso,
+                  antico, antip, anes, med_note, req_json,
+                  session["user"], custom_proc_name if custom_proc_name else None))
             con.commit()
+
         flash("Randevu kaydedildi.", "success")
         return redirect(url_for("agenda", date=day_iso))
 
     return render_template("new.html", day_iso=day_iso, procs=procs, user=session.get("user",""))
 
+# ---------- Silme ----------
 @app.route("/delete/<int:appt_id>", methods=["POST"])
 @login_required
-def delete_appt(appt_id:int):
-    """Form-POST ile sil. Ajanda’dan çalışır."""
-    day_iso = request.form.get("day_iso") or date.today().strftime("%Y-%m-%d")
+def delete_appt(appt_id: int):
+    # goruntule rolü silemesin
+    if session.get("role") == "goruntule":
+        flash("Bu kullanıcı randevu silemez.", "warning")
+        return redirect(url_for("agenda"))
+
+    day_iso = request.form.get("day_iso") or datetime.now().strftime("%Y-%m-%d")
     with get_conn() as con:
-        con.execute("DELETE FROM appointments WHERE id=?", (appt_id,))
+        con.execute("DELETE FROM appointments WHERE id = ?", (appt_id,))
         con.commit()
     flash("Randevu silindi.", "success")
     return redirect(url_for("agenda", date=day_iso))
 
-# ---------------------- routes: admin ----------------------
-@app.route("/admin", methods=["GET","POST"])
-@role_required("admin")
+# ---------- Admin Paneli (çok basit görüntüleme) ----------
+@app.route("/admin")
+@login_required
 def admin_panel():
-    """Kullanıcı yönetimi (listele/ekle/şifre sıfırla/aktiflik/rol)."""
-    msg = None
-    if request.method == "POST":
-        action = request.form.get("action")
-        with get_conn() as con:
-            if action == "add":
-                u = request.form["username"].strip()
-                p = request.form["password"].strip()
-                r = request.form.get("role","doctor")
-                if not u or not p:
-                    flash("Kullanıcı adı ve şifre zorunlu.", "warning")
-                else:
-                    try:
-                        con.execute("INSERT INTO users(username,password_hash,role) VALUES (?,?,?)",
-                                    (u, generate_password_hash(p), r))
-                        con.commit(); flash("Kullanıcı eklendi.","success")
-                    except sqlite3.IntegrityError:
-                        flash("Bu kullanıcı zaten var.","danger")
-            elif action == "reset":
-                uid = int(request.form["id"])
-                np = request.form["new_password"].strip()
-                con.execute("UPDATE users SET password_hash=? WHERE id=?",
-                            (generate_password_hash(np), uid))
-                con.commit(); flash("Şifre güncellendi.","success")
-            elif action == "role":
-                uid = int(request.form["id"])
-                r = request.form.get("role","doctor")
-                con.execute("UPDATE users SET role=? WHERE id=?", (r, uid))
-                con.commit(); flash("Rol güncellendi.","success")
-            elif action == "toggle":
-                uid = int(request.form["id"])
-                con.execute("UPDATE users SET is_active=1-is_active WHERE id=?", (uid,))
-                con.commit(); flash("Aktiflik değiştirildi.","success")
+    if session.get("role") != "admin":
+        flash("Admin yetkisi gerekli.", "danger")
+        return redirect(url_for("agenda"))
 
     with get_conn() as con:
-        users = con.execute("SELECT id,username,role,is_active FROM users ORDER BY username").fetchall()
-    return render_template("admin_panel.html", users=users)
-
-# ---------------------- run (yerel geliştirme için) ----------------------
-if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+        users = []
+        procs = con.execute("SELECT id,name,default_duration_min,active FROM procedure_types ORDER BY name").fetchall()
+    return render_template("admin_panel.html", procs=procs, users=users)
